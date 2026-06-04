@@ -1,0 +1,90 @@
+SELECT
+    r.owner_name,
+    r.prefix_6,
+    r.creation_window,
+    r.recent_same_prefix_cnt,
+    w.total_table_cnt
+FROM (
+    SELECT
+        c.tableowner AS owner_name,
+        c.prefix_6,
+        c.creation_window,
+        COUNT(*) AS recent_same_prefix_cnt
+    FROM (
+        SELECT
+            tableowner,
+            LEFT(tablename, 6) AS prefix_6,
+            CASE
+                WHEN created >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+                    THEN 'LAST_24H'
+                WHEN created >= CURRENT_TIMESTAMP - INTERVAL '48 hours'
+                 AND created <  CURRENT_TIMESTAMP - INTERVAL '24 hours'
+                    THEN 'HOURS_24_TO_48'
+            END AS creation_window
+        FROM pg_tables
+        WHERE created IS NOT NULL
+          AND created >= CURRENT_TIMESTAMP - INTERVAL '48 hours'
+          AND schemaname NOT IN (
+              'pg_catalog', 'information_schema', 'dbe_perf',
+              'snapshot', 'dbe_pldeveloper', 'pkg_service',
+              'omm', 'postgres', 'gaussdb', 'dbe_pldeveloper'
+          )
+          AND schemaname NOT LIKE 'pg_toast%'
+          AND schemaname NOT LIKE 'pg_temp%'
+          AND schemaname NOT LIKE 'omm%'
+          AND tableowner NOT IN (
+              'omm', 'postgres', 'gaussdb', 'initial_user', 'audit_admin'
+          )
+          AND tableowner NOT LIKE 'omm%'
+          AND tablename NOT LIKE 'pg_%'
+    ) c
+    WHERE c.creation_window IS NOT NULL
+    GROUP BY
+        c.tableowner,
+        c.prefix_6,
+        c.creation_window
+    HAVING COUNT(*) > 1000
+) r
+JOIN (
+    SELECT
+        c.tableowner AS owner_name,
+        c.creation_window,
+        COUNT(*) AS total_table_cnt
+    FROM (
+        SELECT
+            tableowner,
+            CASE
+                WHEN created >= CURRENT_TIMESTAMP - INTERVAL '24 hours'
+                    THEN 'LAST_24H'
+                WHEN created >= CURRENT_TIMESTAMP - INTERVAL '48 hours'
+                 AND created <  CURRENT_TIMESTAMP - INTERVAL '24 hours'
+                    THEN 'HOURS_24_TO_48'
+            END AS creation_window
+        FROM pg_tables
+        WHERE created IS NOT NULL
+          AND created >= CURRENT_TIMESTAMP - INTERVAL '48 hours'
+          AND schemaname NOT IN (
+              'pg_catalog', 'information_schema', 'dbe_perf',
+              'snapshot', 'dbe_pldeveloper', 'pkg_service',
+              'omm', 'postgres', 'gaussdb', 'dbe_pldeveloper'
+          )
+          AND schemaname NOT LIKE 'pg_toast%'
+          AND schemaname NOT LIKE 'pg_temp%'
+          AND schemaname NOT LIKE 'omm%'
+          AND tableowner NOT IN (
+              'omm', 'postgres', 'gaussdb', 'initial_user', 'audit_admin'
+          )
+          AND tableowner NOT LIKE 'omm%'
+          AND tablename NOT LIKE 'pg_%'
+    ) c
+    WHERE c.creation_window IS NOT NULL
+    GROUP BY
+        c.tableowner,
+        c.creation_window
+) w
+  ON w.owner_name = r.owner_name
+ AND w.creation_window = r.creation_window
+ORDER BY
+    r.creation_window,
+    r.recent_same_prefix_cnt DESC,
+    w.total_table_cnt DESC;

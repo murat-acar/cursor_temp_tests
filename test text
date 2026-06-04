@@ -1,0 +1,5 @@
+ owner_name | prefix_6 | creation_window  | recent_same_prefix_cnt | total_table_cnt
+------------+----------+------------------+------------------------+-----------------
+ app_owner1 | TBLABC   | LAST_24H         |                   1523 |            4800
+ app_owner1 | TBLXYZ   | HOURS_24_TO_48   |                   1105 |            3200
+ app_owner2 | IDX001   | LAST_24H         |                   2100 |            8500
